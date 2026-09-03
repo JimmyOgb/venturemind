@@ -2,11 +2,11 @@
 
 [![GenLayer Bradbury Testnet](https://img.shields.io/badge/GenLayer-Bradbury%20Testnet%20(4221)-blue.svg)](https://rpc-bradbury.genlayer.com)
 [![Intelligent Contract](https://img.shields.io/badge/Contract-VentureMindAI-green.svg)](https://scan-bradbury.genlayer.com)
-[![Frontend Tests](https://img.shields.io/badge/Vitest-35%2F35%20Passing-brightgreen.svg)](frontend/src/tests)
-[![Contract Tests](https://img.shields.io/badge/Pytest-57%20Passed%2C%201%20Skipped-brightgreen.svg)](tests/)
+[![Frontend Tests](https://img.shields.io/badge/Vitest-38%2F38%20Passing-brightgreen.svg)](frontend/src/tests)
+[![Contract Tests](https://img.shields.io/badge/Pytest-75%20Passed-brightgreen.svg)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**VentureMind** is a decentralized, consensus-backed AI startup due-diligence oracle powered by GenLayer Intelligent Contracts on the Bradbury Testnet (`testnet-bradbury`, Chain ID: `4221`). It accepts structured startup metadata and bounded evidence documents from founders, evaluates claims through independent GenLayer validator LLM consensus (Leader and Validator independently assessing untrusted evidence within strict tolerance envelopes), and commits deterministic on-chain diligence assessments with cryptographic SHA-256 report proofs.
+**VentureMind** is a decentralized, consensus-backed AI startup due-diligence oracle powered by GenLayer Intelligent Contracts on the Bradbury Testnet (`testnet-bradbury`, Chain ID: `4221`). It ingests structured founder metadata alongside **independently retrieved primary external evidence** (official corporate registries, regulatory filings, authoritative datasets, and live canonical websites). GenLayer validators independently retrieve and authenticate this external evidence, cross-examine it against untrusted founder claims, reach contested consensus on 9 structured diligence dimensions within strict mathematical tolerances, and commit tamper-evident diligence reports with cryptographic SHA-256 proofs directly on-chain.
 
 ---
 
@@ -107,7 +107,8 @@ GenLayer uniquely enables **Intelligent Contracts** that combine:
 ┌──────────────────────────────────────────────────────────────────────────────────┐
 │                             BROWSER FRONTEND (React)                             │
 │  - EIP-1193 Wallet Connection       - Document Sanitization Preview              │
-│  - GenLayer RLP & Protobuf Calldata - Live Contract State Reads (gen_call)       │
+│  - External Source Category Inputs  - Live Contract State Reads (gen_call)       │
+│  - GenLayer RLP Calldata Encoding   - Evidence Provenance & Cryptographic Proofs │
 └───────────────────────────┬──────────────────────────────────────────────────────┘
                             │
                    eth_sendTransaction
@@ -115,21 +116,30 @@ GenLayer uniquely enables **Intelligent Contracts** that combine:
                             ▼
 ┌──────────────────────────────────────────────────────────────────────────────────┐
 │                     GENLAYER BRADBURY TESTNET (Chain ID: 4221)                   │
-│                     Contract: VentureMindAI (0xCB19...8DF1)                      │
+│                     Contract: VentureMindAI (0xc350...07D1)                      │
 │                                                                                  │
-│   1. submit_startup()                                                            │
+│   1. submit_startup(name, website, sector, founder, docs, [external_sources])    │
 │      ├── Transaction sender normalization & founder address binding              │
-│      ├── Conservative website canonicalization & injection sanitization          │
+│      ├── Conservative website & external source URL canonicalization             │
+│      ├── Injection sanitization & bounded parsing                                │
 │      └── Compute rep_key: SHA256(canonical_url + ":" + founder) → SUBMITTED      │
 │                                                                                  │
 │   2. evaluate_startup(rep_key) [Founder Only]                                    │
 │      │                                                                           │
-│      ├── Step A: Leader runs nondeterministic LLM prompt (JSON mode)             │
+│      ├── Step A: Leader Validator Execution                                      │
+│      │    ├── Independently fetches canonical website & external sources (HTTP)  │
+│      │    ├── Bounds responses (≤10k chars/source), sanitizes, hashes evidence   │
+│      │    ├── Compiles prompt: FOUNDER_EVIDENCE + PRIMARY_EXTERNAL_EVIDENCE      │
+│      │    └── Runs nondeterministic LLM prompt (JSON mode) & schema validation   │
 │      │                                                                           │
-│      ├── Step B: Validator independently runs nondeterministic LLM prompt        │
+│      ├── Step B: Independent Validator Execution                                 │
+│      │    ├── Independently fetches canonical website & external sources (HTTP)  │
+│      │    ├── Independently compiles prompt with its own retrieved evidence      │
+│      │    └── Independently runs nondeterministic LLM prompt & schema validation │
 │      │                                                                           │
-│      ├── Step C: Equivalence Principle Check (_assessments_agree)                │
-│      │    ├── Verdict must match EXACTLY (INVEST / MONITOR / REJECT)             │
+│      ├── Step C: Contested Equivalence Principle Checks                          │
+│      │    ├── Evidence agreement check: URLs, statuses, & SHA-256 hashes agree   │
+│      │    ├── Verdict match: Leader verdict == Validator verdict                 │
 │      │    ├── Dimension score delta ≤ ±10 per dimension                          │
 │      │    ├── Overall score delta ≤ ±10 points                                   │
 │      │    └── Confidence score delta ≤ ±15 points                                │
@@ -138,11 +148,58 @@ GenLayer uniquely enables **Intelligent Contracts** that combine:
 │      │    └── score = floor(sum(dimension_score * weight) / 100)                 │
 │      │                                                                           │
 │      ├── Step E: Cryptographic Report Hash Commitment                            │
-│      │    └── report_hash = SHA256(canonical_json(report_data))                  │
+│      │    └── report_hash = SHA256(canonical_json(report_data_with_provenance)) │
 │      │                                                                           │
 │      └── Step F: State Update → RESOLVED                                         │
 └──────────────────────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## The Trust Model: Founder vs. Primary External Evidence
+
+### The Reviewer Challenge Addressed
+
+In early versions, validators assessed only founder-controlled pitch deck text. While validators were independent, they were evaluating purely self-reported founder claims.
+
+### The Upgraded Due Diligence Trust Model
+
+| Dimension | Previous Architecture | Upgraded Primary Evidence Architecture |
+| :--- | :--- | :--- |
+| **Evidence Input** | Founder-provided text only | Founder claims + **independently retrieved primary external evidence** |
+| **Validator Action** | Evaluated identical static founder text | **Independently fetch external websites/registries** via `gl.nondet.web.get` |
+| **Consensus Basis** | LLM interpretation agreement on pitch deck | **Contested consensus over independently retrieved external evidence** |
+| **Contradiction Detection** | None (no external data to refute claims) | Explicitly checks for conflicts between claims and public records |
+| **Provenance Tracking** | None | Full on-chain commitments: source URL, category, status, SHA-256 hashes |
+| **Positioning** | "AI diligence" | **Consensus-backed startup due diligence using independently sourced evidence** |
+
+### Evidence Classifications
+
+1. **Founder-Provided Evidence (`founder_supplied`)**:
+   - Documents submitted directly by the startup founder (pitch deck, executive summary, cap table notes, self-reported metrics).
+   - Treated strictly as **untrusted claims**. Never accepted as verified truth.
+2. **Primary External Evidence (`external_retrieved`)**:
+   - Evidence retrieved directly from publicly accessible sources by GenLayer validators during contract execution.
+   - Categories:
+     - `official_registry`: Official company registration and corporate filings (e.g. SEC EDGAR, UK Companies House, state business registers).
+     - `regulatory_filing`: Regulatory disclosures, licenses, compliance registrations.
+     - `authoritative_dataset`: Publicly verified industry datasets, indices, and market benchmarks.
+     - `domain_record`: DNS records, SSL/TLS certificate transparency, hosting infrastructure.
+     - `founder_selected`: Founder-provided external URLs (e.g. product page, news article). Treated as external data, but **not** automatically certified as authoritative.
+
+### What VentureMind Verifies vs. What It Cannot
+
+> [!IMPORTANT]
+> **What VentureMind CAN Verify:**
+> * Validators independently access live external web sources and corporate registries.
+> * Validators independently verify whether external evidence corroborates or contradicts founder claims.
+> * Dynamic webpage tampering or contradictory data between nodes fails consensus.
+> * Final scores, verdicts, and cryptographic report commitments are deterministic and immutable.
+>
+> **What VentureMind CANNOT Verify:**
+> * Real-world legal truth that is not recorded in publicly accessible online records.
+> * Cryptographic domain ownership without zero-knowledge TLS proofs (TLSNotary).
+> * The system does **not** guarantee that a business is truthful or will succeed. It provides transparent, consensus-audited due diligence.
 
 ---
 
@@ -154,41 +211,44 @@ GenLayer uniquely enables **Intelligent Contracts** that combine:
        ▼ (1) Connect to Bradbury Testnet (Chain ID 4221)
 [VentureMind UI]
        │
-       ▼ (2) Fill metadata & upload up to 5 evidence documents
-[Client-side Validation] (Enforces ≤12k char/doc, ≤50k combined, ≤64k JSON)
+       ▼ (2) Enter metadata, up to 5 pitch documents, & up to 3 primary external sources
+[Client-side Validation] (Enforces ≤12k char/doc, ≤50k combined docs, ≤3 sources, URL formats)
        │
        ▼ (3) Call submit_startup() via Web3 Wallet
 [VentureMindAI Contract] ─── Stored as SUBMITTED state with deterministic rep_key
        │
        ▼ (4) Submitting founder triggers evaluate_startup(rep_key)
 [GenLayer Consensus]
-  ├── Leader Validator runs LLM evaluation
-  ├── Independent Validator runs LLM evaluation
-  └── Equivalence verification passes (Tolerance: ±10 points, exact verdict)
+  ├── Leader Validator independently fetches external sources & evaluates
+  ├── Independent Validator independently fetches external sources & evaluates
+  ├── Evidence Agreement Check (URLs, statuses, content hashes match)
+  └── Equivalence Verification (Tolerance: ±10 points, exact verdict match)
        │
-       ▼ (5) Deterministic Score + Cryptographic SHA-256 Report Hash persisted
+       ▼ (5) Deterministic Score + Cryptographic SHA-256 Report Hash persisted on-chain
 [RESOLVED State]
        │
-       ▼ (6) Founder & Public explore canonical 9-dimension report & verify hash
+       ▼ (6) Founder & Public inspect 9-dimension report & external evidence provenance
 ```
 
 ---
 
 ## Deployed Intelligent Contract
 
-The VentureMindAI Intelligent Contract is live and immutable on the GenLayer Bradbury Testnet:
+The updated VentureMindAI Intelligent Contract (incorporating primary external evidence verification) is live on the GenLayer Bradbury Testnet:
 
 | Parameter | Value |
 | :--- | :--- |
-| **Contract Name** | `VentureMindAI` |
-| **Contract Address** | `0xCB19Df1488aFabA7e5bDB2246C6E6F58fcfe8DF1` |
+| **Contract Name** | `VentureMindAI` (v2 — Primary External Evidence) |
+| **Active Contract Address** | `0xc350Cd4E4E6254FB72903cD803f354a993C907D1` |
+| **Deployment Transaction** | `0x0350e3661a814b8631cdcbf31fd1bc9cdcd4cfedc8246eca881a30075add0f38` |
 | **Network** | GenLayer Bradbury Testnet |
 | **Chain ID** | `4221` (`0x107d`) |
 | **RPC Endpoint** | `https://rpc-bradbury.genlayer.com` |
 | **Block Explorer** | `https://scan-bradbury.genlayer.com` |
-| **Deployment Transaction** | `0xb903ca7fccb693af3e98d4c8563dbad04ca990ed8874c813f83a55c43a5c4e45` |
 | **Admin / Deployer Address** | `0xE4220c4b71877bb94EB173f467ef5c5557017085` |
 | **Consensus Contract** | `0xb7278A61aa25c888815aFC32Ad3cC52fF24fE575` |
+| **Historical v1 Deployment** | `0xCB19Df1488aFabA7e5bDB2246C6E6F58fcfe8DF1` *(v1 founder-text-only baseline; deprecated)* |
+| **Historical v1 Tx** | `0xb903ca7fccb693af3e98d4c8563dbad04ca990ed8874c813f83a55c43a5c4e45` |
 
 ---
 
@@ -210,15 +270,18 @@ The smart contract [`contract/venturemind.py`](contract/venturemind.py) is imple
 
 ### Evidence & Input Security Model
 
-To prevent memory exhaustion and prompt injection attacks:
+To prevent memory exhaustion, sybil spam, and prompt injection attacks:
 
-* **Document Count Limit**: Maximum 5 documents per submission.
+* **Founder Document Count Limit**: Maximum 5 documents per submission.
 * **Per-Document Character Limit**: Maximum 12,000 characters per document.
-* **Combined Character Limit**: Maximum 50,000 characters across all documents.
-* **Raw JSON Payload Limit**: Maximum 64,000 characters for `documents_json`.
+* **Combined Document Character Limit**: Maximum 50,000 characters across all documents.
+* **Raw Documents JSON Payload Limit**: Maximum 64,000 characters for `documents_json`.
+* **External Sources Limit**: Maximum 3 external sources per submission.
+* **Per-External Source Content Limit**: Maximum 10,000 characters (bounded extraction if exceeded).
+* **Combined External Content Limit**: Maximum 30,000 characters across all external sources.
 * **Prompt Buffer Limit**: Maximum 128,000 characters for the assembled LLM prompt.
 * **Assessment Serialization Limit**: Maximum 32,000 characters for the validated assessment JSON.
-* **Prompt Injection Defense**: Untrusted evidence is encapsulated inside explicit JSON data boundaries (`--- BEGIN UNTRUSTED EVIDENCE JSON ---`), and known injection sequences (e.g. `SYSTEM_PROMPT:`, `IGNORE_INSTRUCTIONS`, `system message`) are automatically sanitized to `[SANITIZED]`.
+* **Prompt Injection Defense**: Both founder documents and external webpages are treated as untrusted data encapsulated inside explicit JSON data boundaries (`--- BEGIN UNTRUSTED EVIDENCE JSON ---`), and known injection sequences (e.g. `SYSTEM_PROMPT:`, `IGNORE_INSTRUCTIONS`, `system message`) are automatically sanitized to `[SANITIZED]`.
 
 ### Founder Authorization Model
 
@@ -517,7 +580,7 @@ curl -X POST https://rpc-bradbury.genlayer.com \
     "method": "gen_call",
     "params": [{
       "type": "read",
-      "to": "0xCB19Df1488aFabA7e5bDB2246C6E6F58fcfe8DF1",
+      "to": "0xc350Cd4E4E6254FB72903cD803f354a993C907D1",
       "from": "0x0000000000000000000000000000000000000000",
       "data": "<RLP_ENCODED_CALLDATA>",
       "transaction_hash_variant": "latest-nonfinal"
@@ -533,7 +596,7 @@ Methods available:
 
 ### Write Methods (via `eth_sendTransaction`)
 
-* `submit_startup(name: str, website: str, sector: str, founder_address: str, documents_json: str) -> str`
+* `submit_startup(name: str, website: str, sector: str, founder_address: str, documents_json: str, external_sources_json: str = "[]") -> str`
 * `evaluate_startup(rep_key: str) -> str`
 
 ---

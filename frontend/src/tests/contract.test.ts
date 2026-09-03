@@ -12,7 +12,7 @@ describe('VentureMind Contract Service', () => {
 
   describe('Configuration & Immutable Constants', () => {
     it('uses correct Bradbury contract address', () => {
-      expect(service.contractAddress).toBe('0xCB19Df1488aFabA7e5bDB2246C6E6F58fcfe8DF1');
+      expect(service.contractAddress).toBe('0xc350Cd4E4E6254FB72903cD803f354a993C907D1');
       expect(BRADBURY_CONFIG.chainId).toBe(4221);
       expect(BRADBURY_CONFIG.chainIdHex).toBe('0x107d');
       expect(BRADBURY_CONFIG.rpcUrl).toBe('https://rpc-bradbury.genlayer.com');
@@ -118,6 +118,71 @@ describe('VentureMind Contract Service', () => {
       });
       expect(result.valid).toBe(false);
       expect(result.errors.documents).toContain('maximum is 50,000');
+    });
+
+    it('accepts valid external sources array', () => {
+      const result = service.validateSubmissionInputs({
+        name: 'Acme',
+        website: 'https://acme.example',
+        sector: 'AI',
+        founder: '0x1234567890123456789012345678901234567890',
+        documents: ['doc'],
+        externalSources: [
+          {
+            url: 'https://find-and-update.company-information.service.gov.uk/company/12345678',
+            category: 'official_registry',
+            description: 'Companies House filing',
+          },
+          {
+            url: 'https://sec.gov/edgar/data/99999',
+            category: 'regulatory_filing',
+          },
+        ],
+      });
+      expect(result.valid).toBe(true);
+      expect(result.errors.externalSources).toBeUndefined();
+    });
+
+    it('rejects more than 3 external sources', () => {
+      const result = service.validateSubmissionInputs({
+        name: 'Acme',
+        website: 'https://acme.example',
+        sector: 'AI',
+        founder: '0x1234567890123456789012345678901234567890',
+        documents: ['doc'],
+        externalSources: [
+          { url: 'https://s1.example', category: 'official_registry' },
+          { url: 'https://s2.example', category: 'regulatory_filing' },
+          { url: 'https://s3.example', category: 'domain_record' },
+          { url: 'https://s4.example', category: 'founder_selected' },
+        ],
+      });
+      expect(result.valid).toBe(false);
+      expect(result.errors.externalSources).toContain('maximum of 3');
+    });
+
+    it('rejects external source with invalid URL or category', () => {
+      const invalidUrl = service.validateSubmissionInputs({
+        name: 'Acme',
+        website: 'https://acme.example',
+        sector: 'AI',
+        founder: '0x1234567890123456789012345678901234567890',
+        documents: ['doc'],
+        externalSources: [{ url: 'not-a-url', category: 'official_registry' }],
+      });
+      expect(invalidUrl.valid).toBe(false);
+      expect(invalidUrl.errors.externalSources).toContain('invalid HTTP/HTTPS URL');
+
+      const invalidCat = service.validateSubmissionInputs({
+        name: 'Acme',
+        website: 'https://acme.example',
+        sector: 'AI',
+        founder: '0x1234567890123456789012345678901234567890',
+        documents: ['doc'],
+        externalSources: [{ url: 'https://valid.example', category: 'unknown_cat' as any }],
+      });
+      expect(invalidCat.valid).toBe(false);
+      expect(invalidCat.errors.externalSources).toContain('invalid category');
     });
   });
 

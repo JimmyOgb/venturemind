@@ -30,6 +30,32 @@ export interface FullAssessment {
   confidence: number;
 }
 
+export type SourceCategory =
+  | 'official_registry'
+  | 'regulatory_filing'
+  | 'authoritative_dataset'
+  | 'domain_record'
+  | 'founder_selected';
+
+export interface ExternalSourceInput {
+  url: string;
+  category: SourceCategory;
+  description?: string;
+}
+
+export interface EvidenceProvenanceItem {
+  url?: string;
+  category: string;
+  description?: string;
+  retrieval_status: string;
+  content_hash: string;
+  content_length: number;
+  raw_length?: number;
+  bounded?: boolean;
+  provenance_type: 'founder_supplied' | 'external_retrieved';
+  index?: number;
+}
+
 export interface DiligenceReport {
   rep_key: string;
   score: number;
@@ -37,6 +63,8 @@ export interface DiligenceReport {
   assessment: FullAssessment;
   reasoning: string;
   confidence: number;
+  founder_evidence?: EvidenceProvenanceItem[];
+  external_evidence?: EvidenceProvenanceItem[];
   report_hash: string;
 }
 
@@ -49,6 +77,7 @@ export interface StartupSubmission {
   sector: string;
   founder: string;
   documents: string[];
+  external_sources?: ExternalSourceInput[];
   status: SubmissionStatus;
   report: DiligenceReport | null;
 }

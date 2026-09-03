@@ -16,6 +16,7 @@ import {
   Info,
   ArrowLeft,
   Cpu,
+  Globe,
 } from './icons';
 
 interface ReportViewProps {
@@ -257,6 +258,134 @@ export const ReportView: React.FC<ReportViewProps> = ({ repKey, onBack }) => {
             );
           })}
         </div>
+      </div>
+
+      {/* Primary External Evidence & Provenance Section */}
+      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 pb-2 border-b border-slate-800">
+          <div className="flex items-center gap-2">
+            <Globe className="w-4 h-4 text-emerald-400" />
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+              Primary Evidence Provenance & Verification
+            </h3>
+          </div>
+          <span className="text-[11px] font-mono text-emerald-400/90 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+            Independently Retrieved by GenLayer Validators
+          </span>
+        </div>
+
+        <div className="mb-4 text-xs text-slate-400 leading-relaxed">
+          The evaluation verdict is grounded in independently fetched primary evidence cross-referenced against founder claims. Below are the cryptographic commitments and provenance records verified during consensus.
+        </div>
+
+        {/* External Evidence List */}
+        {report.external_evidence && report.external_evidence.length > 0 ? (
+          <div className="space-y-3 mb-6">
+            <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+              <span>External Primary Evidence Sources</span>
+              <span className="text-slate-500 font-mono">({report.external_evidence.length})</span>
+            </h4>
+            <div className="grid grid-cols-1 gap-3">
+              {report.external_evidence.map((item, idx) => {
+                const statusColor =
+                  item.retrieval_status === 'SUCCESS'
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                    : item.retrieval_status === 'BOUNDED_EXTRACT'
+                    ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                    : 'bg-rose-500/10 text-rose-400 border-rose-500/30';
+
+                return (
+                  <div
+                    key={idx}
+                    className="bg-slate-950/80 border border-slate-800/90 rounded-xl p-3.5 space-y-2"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${statusColor}`}>
+                          {item.retrieval_status}
+                        </span>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-300 border border-slate-700">
+                          {item.category.replace('_', ' ')}
+                        </span>
+                        {item.bounded && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                            Bounded Extract ({item.content_length.toLocaleString()} / {item.raw_length?.toLocaleString()} chars)
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[11px] font-mono text-slate-400">
+                        {item.content_length.toLocaleString()} chars
+                      </span>
+                    </div>
+
+                    {item.url && (
+                      <div className="flex items-center gap-1.5 text-xs text-slate-200 font-mono truncate">
+                        <span className="text-slate-500">Source:</span>
+                        <a
+                          href={item.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-emerald-400 hover:underline truncate flex items-center gap-1"
+                        >
+                          <span className="truncate">{item.url}</span>
+                          <ExternalLink className="w-3 h-3 shrink-0" />
+                        </a>
+                      </div>
+                    )}
+
+                    {item.description && (
+                      <p className="text-xs text-slate-400">{item.description}</p>
+                    )}
+
+                    <div className="text-[11px] font-mono text-slate-500 bg-slate-900/60 p-2 rounded border border-slate-800/80 flex items-center justify-between gap-2">
+                      <span className="truncate">Content Hash: {item.content_hash}</span>
+                      <button
+                        onClick={() => handleCopy(item.content_hash, 'hash')}
+                        className="p-0.5 hover:text-emerald-400 text-slate-500 shrink-0"
+                        title="Copy Evidence Hash"
+                      >
+                        <Copy className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+
+        {/* Founder-Supplied Evidence List */}
+        {report.founder_evidence && report.founder_evidence.length > 0 ? (
+          <div className="space-y-3">
+            <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+              <span>Founder-Supplied Claims (Untrusted)</span>
+              <span className="text-slate-500 font-mono">({report.founder_evidence.length} docs)</span>
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {report.founder_evidence.map((item, idx) => (
+                <div
+                  key={idx}
+                  className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-3 space-y-1.5"
+                >
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-slate-300 font-mono">
+                      Document #{typeof item.index === 'number' ? item.index + 1 : idx + 1}
+                    </span>
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                      Founder Supplied
+                    </span>
+                  </div>
+                  <div className="text-[11px] font-mono text-slate-500 truncate">
+                    Hash: {item.content_hash.slice(0, 16)}...{item.content_hash.slice(-8)}
+                  </div>
+                  <div className="text-[10px] font-mono text-slate-400">
+                    Size: {item.content_length.toLocaleString()} characters
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {/* Report Integrity & On-chain Verification Section */}

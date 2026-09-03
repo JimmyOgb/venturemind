@@ -14,13 +14,18 @@ import {
 
 export const BRADBURY_CONFIG: NetworkConfig = {
   name: 'GenLayer Bradbury',
-  chainId: 4221,
+  chainId: Number(import.meta.env?.VITE_GENLAYER_CHAIN_ID || 4221),
   chainIdHex: '0x107d',
-  rpcUrl: 'https://rpc-bradbury.genlayer.com',
-  explorerUrl: 'https://scan-bradbury.genlayer.com',
-  contractAddress: '0xCB19Df1488aFabA7e5bDB2246C6E6F58fcfe8DF1',
-  deploymentTx: '0xb903ca7fccb693af3e98d4c8563dbad04ca990ed8874c813f83a55c43a5c4e45',
+  rpcUrl: import.meta.env?.VITE_GENLAYER_RPC_URL || 'https://rpc-bradbury.genlayer.com',
+  explorerUrl: import.meta.env?.VITE_GENLAYER_EXPLORER_URL || 'https://scan-bradbury.genlayer.com',
+  contractAddress:
+    import.meta.env?.VITE_VENTUREMIND_CONTRACT_ADDRESS ||
+    '0xc350Cd4E4E6254FB72903cD803f354a993C907D1',
+  deploymentTx: '0x0350e3661a814b8631cdcbf31fd1bc9cdcd4cfedc8246eca881a30075add0f38',
 };
+
+// Historical v1 contract deployment (reference only)
+export const HISTORICAL_V1_CONTRACT = '0xCB19Df1488aFabA7e5bDB2246C6E6F58fcfe8DF1';
 
 // Bradbury Consensus Contract Address for transaction submission
 export const BRADBURY_CONSENSUS_CONTRACT = '0xb7278A61aa25c888815aFC32Ad3cC52fF24fE575';
@@ -31,6 +36,7 @@ export interface SubmitStartupInput {
   sector: string;
   founder: string;
   documents: string[];
+  externalSources?: import('../types/contract').ExternalSourceInput[];
 }
 
 export class VentureMindContractService {
@@ -221,6 +227,51 @@ export class VentureMindContractService {
       }
     }
 
+    if (input.externalSources !== undefined) {
+      if (!Array.isArray(input.externalSources)) {
+        errors.externalSources = 'External sources must be an array.';
+      } else if (input.externalSources.length > 3) {
+        errors.externalSources = 'A maximum of 3 external sources is allowed.';
+      } else {
+        const validCategories = [
+          'official_registry',
+          'regulatory_filing',
+          'authoritative_dataset',
+          'domain_record',
+          'founder_selected',
+        ];
+        for (let i = 0; i < input.externalSources.length; i++) {
+          const src = input.externalSources[i];
+          if (!src || typeof src !== 'object') {
+            errors.externalSources = `External source #${i + 1} must be an object.`;
+            break;
+          }
+          if (!src.url || !src.url.trim()) {
+            errors.externalSources = `External source #${i + 1} URL cannot be empty.`;
+            break;
+          }
+          try {
+            normalizeWebsite(src.url);
+          } catch {
+            errors.externalSources = `External source #${i + 1} has an invalid HTTP/HTTPS URL.`;
+            break;
+          }
+          if (src.category && !validCategories.includes(src.category)) {
+            errors.externalSources = `External source #${i + 1} has an invalid category: ${src.category}`;
+            break;
+          }
+          if (src.description && src.description.length > 256) {
+            errors.externalSources = `External source #${i + 1} description is too long (max 256 characters).`;
+            break;
+          }
+        }
+        const rawExtJson = JSON.stringify(input.externalSources);
+        if (!errors.externalSources && rawExtJson.length > 8000) {
+          errors.externalSources = `External sources JSON is too large (max 8,000 bytes).`;
+        }
+      }
+    }
+
     return {
       valid: Object.keys(errors).length === 0,
       errors,
@@ -249,14 +300,16 @@ export class VentureMindContractService {
     const canonicalWebsite = normalizeWebsite(input.website);
     const repKey = await computeRepKey(canonicalWebsite, normalizedFounder);
 
-    // Encode write method calldata: submit_startup(name, website, sector, founder_address, documents_json)
+    // Encode write method calldata: submit_startup(name, website, sector, founder_address, documents_json, external_sources_json)
     const documentsJson = JSON.stringify(input.documents);
-    const args = [
+    const externalSourcesJson = JSON.stringify(input.externalSources || []);
+    const args: string[] = [
       input.name.trim(),
       canonicalWebsite,
       input.sector.trim(),
       input.founder.trim(),
       documentsJson,
+      externalSourcesJson,
     ];
 
     const cd = encodeCalldata({ method: 'submit_startup', args });

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { contractService, BRADBURY_CONFIG } from '../services/contract';
 import { WalletState, formatAddress, switchToBradburyNetwork } from '../services/wallet';
 import { saveLocalSubmission } from '../services/storage';
+import { ExternalSourceInput, SourceCategory } from '../types/contract';
 import {
   FilePlus,
   Trash2,
@@ -11,6 +12,8 @@ import {
   Loader2,
   Info,
   Lock,
+  Globe,
+  Plus,
 } from './icons';
 
 interface SubmitFormProps {
@@ -29,6 +32,7 @@ export const SubmitForm: React.FC<SubmitFormProps> = ({
   const [sector, setSector] = useState('');
   const [founderAddress, setFounderAddress] = useState('');
   const [documents, setDocuments] = useState<string[]>(['']);
+  const [externalSources, setExternalSources] = useState<ExternalSourceInput[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -71,13 +75,41 @@ export const SubmitForm: React.FC<SubmitFormProps> = ({
     setDocuments(updated);
   };
 
+  const handleAddExternalSource = () => {
+    if (externalSources.length < 3) {
+      setExternalSources([
+        ...externalSources,
+        { url: '', category: 'official_registry', description: '' },
+      ]);
+    }
+  };
+
+  const handleRemoveExternalSource = (index: number) => {
+    setExternalSources(externalSources.filter((_, i) => i !== index));
+  };
+
+  const handleExternalSourceChange = (
+    index: number,
+    field: keyof ExternalSourceInput,
+    value: string
+  ) => {
+    const updated = [...externalSources];
+    updated[index] = {
+      ...updated[index],
+      [field]: value,
+    };
+    setExternalSources(updated);
+  };
+
   const validate = (): boolean => {
+    const validExtSources = externalSources.filter((s) => s.url.trim().length > 0);
     const result = contractService.validateSubmissionInputs({
       name,
       website,
       sector,
       founder: founderAddress,
       documents: documents.filter((d) => d.trim().length > 0),
+      externalSources: validExtSources,
     });
 
     const newErrors = { ...result.errors };
@@ -124,6 +156,7 @@ export const SubmitForm: React.FC<SubmitFormProps> = ({
     setTxStatusMessage('Requesting wallet signature...');
 
     const validDocs = documents.filter((d) => d.trim().length > 0);
+    const validExtSources = externalSources.filter((s) => s.url.trim().length > 0);
 
     try {
       setTxStatusMessage('Calling submit_startup on VentureMind Intelligent Contract...');
@@ -134,6 +167,7 @@ export const SubmitForm: React.FC<SubmitFormProps> = ({
           sector: sector.trim(),
           founder: founderAddress.trim(),
           documents: validDocs,
+          externalSources: validExtSources,
         },
         wallet.address!
       );
@@ -360,6 +394,136 @@ export const SubmitForm: React.FC<SubmitFormProps> = ({
               <FilePlus className="w-4 h-4" />
               <span>Add Another Document ({documents.length}/5)</span>
             </button>
+          )}
+        </div>
+
+        {/* Primary External Evidence Card */}
+        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-2 border-b border-slate-800">
+            <div>
+              <div className="flex items-center gap-2">
+                <Globe className="w-4 h-4 text-emerald-400" />
+                <h3 className="text-base font-bold text-slate-100">Primary External Evidence Sources</h3>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  Consensus Verified
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-1">
+                Provide up to 3 official external records (e.g. government registries, filings, or datasets). GenLayer validators independently fetch and authenticate these sources to cross-verify founder claims.
+              </p>
+            </div>
+
+            <span className="text-xs font-mono px-2 py-1 rounded bg-slate-950 border border-slate-800 text-slate-300">
+              {externalSources.length} / 3 Sources
+            </span>
+          </div>
+
+          <div className="mb-4 p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-xs text-slate-300 flex items-start gap-2.5">
+            <Info className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-semibold text-white">Trust Model: </span>
+              The startup canonical website is automatically fetched by GenLayer validators as external evidence. Adding official registry or regulatory records provides primary evidence for validators to independently verify factual claims and detect contradictions.
+            </div>
+          </div>
+
+          {errors.externalSources && (
+            <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-400 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{errors.externalSources}</span>
+            </div>
+          )}
+
+          {externalSources.length === 0 ? (
+            <div className="p-4 rounded-xl border border-dashed border-slate-800 text-center">
+              <p className="text-xs text-slate-500 mb-2">No additional external sources added. Validators will still independently fetch your canonical website.</p>
+              <button
+                type="button"
+                onClick={handleAddExternalSource}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Primary External Evidence Source</span>
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {externalSources.map((src, idx) => (
+                <div key={idx} className="bg-slate-950/60 border border-slate-800 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-300 font-mono">
+                      External Source #{idx + 1}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveExternalSource(idx)}
+                      className="p-1 hover:text-rose-400 text-slate-500 transition-colors"
+                      title="Remove External Source"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                        Source URL (HTTPS)
+                      </label>
+                      <input
+                        type="url"
+                        value={src.url}
+                        onChange={(e) => handleExternalSourceChange(idx, 'url', e.target.value)}
+                        placeholder="https://find-and-update.company-information.service.gov.uk/..."
+                        className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500 font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                        Evidence Category
+                      </label>
+                      <select
+                        value={src.category}
+                        onChange={(e) =>
+                          handleExternalSourceChange(idx, 'category', e.target.value as SourceCategory)
+                        }
+                        className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
+                      >
+                        <option value="official_registry">Official Company Registry (e.g. SEC, Companies House)</option>
+                        <option value="regulatory_filing">Regulatory / Financial Filing</option>
+                        <option value="authoritative_dataset">Authoritative Public Dataset / Index</option>
+                        <option value="domain_record">Domain / Security / Infrastructure Record</option>
+                        <option value="founder_selected">Founder-Selected External Reference</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                      Description / Label (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={256}
+                      value={src.description || ''}
+                      onChange={(e) => handleExternalSourceChange(idx, 'description', e.target.value)}
+                      placeholder="e.g. UK Companies House Active Filing #12345678"
+                      className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+              ))}
+
+              {externalSources.length < 3 && (
+                <button
+                  type="button"
+                  onClick={handleAddExternalSource}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Another External Source ({externalSources.length}/3)</span>
+                </button>
+              )}
+            </div>
           )}
         </div>
 
