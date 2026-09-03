@@ -14,12 +14,12 @@ import {
 
 export const BRADBURY_CONFIG: NetworkConfig = {
   name: 'GenLayer Bradbury',
-  chainId: Number(import.meta.env?.VITE_GENLAYER_CHAIN_ID || 4221),
+  chainId: Number(import.meta.env.VITE_GENLAYER_CHAIN_ID || 4221),
   chainIdHex: '0x107d',
-  rpcUrl: import.meta.env?.VITE_GENLAYER_RPC_URL || 'https://rpc-bradbury.genlayer.com',
-  explorerUrl: import.meta.env?.VITE_GENLAYER_EXPLORER_URL || 'https://scan-bradbury.genlayer.com',
+  rpcUrl: import.meta.env.VITE_GENLAYER_RPC_URL || 'https://rpc-bradbury.genlayer.com',
+  explorerUrl: import.meta.env.VITE_GENLAYER_EXPLORER_URL || 'https://scan-bradbury.genlayer.com',
   contractAddress:
-    import.meta.env?.VITE_VENTUREMIND_CONTRACT_ADDRESS ||
+    import.meta.env.VITE_VENTUREMIND_CONTRACT_ADDRESS ||
     '0xc350Cd4E4E6254FB72903cD803f354a993C907D1',
   deploymentTx: '0x0350e3661a814b8631cdcbf31fd1bc9cdcd4cfedc8246eca881a30075add0f38',
 };
